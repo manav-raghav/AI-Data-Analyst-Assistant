@@ -236,3 +236,151 @@ DATASET ANALYSIS
 
 USER QUESTION: {user_question}
 """
+
+def build_computed_answer_context(df, user_question: str) -> str:
+    """Calculate common dataset questions using Pandas and return verified results."""
+    import re
+    import pandas as pd
+
+    question = user_question.lower()
+    columns = {str(col).lower(): col for col in df.columns}
+
+    # Common ways users refer to dataset columns.
+    aliases = {
+        "height": ["tallest", "taller", "tall", "shortest", "shorter", "short"],
+        "weight": ["heaviest", "heavier", "heavy", "lightest", "lighter", "light"],
+        "age": ["oldest", "old", "youngest", "young"],
+        "price": ["most expensive", "expensive", "cheapest", "cheap"],
+        "salary": ["highest paid", "lowest paid", "highest salary"],
+    }
+
+    # Identify a column mentioned directly in the question.
+    def find_column(text):
+        for col_lower, original_col in columns.items():
+            if re.search(
+                r"\b" + re.escape(col_lower) + r"\b",
+                text,
+            ):
+                return original_col
+
+        # Identify common semantic aliases.
+        for col_lower, words in aliases.items():
+            if col_lower in columns:
+                for word in words:
+                    if word in text:
+                        return columns[col_lower]
+
+        return None
+
+    results = []
+
+    # Identify common operations requested by the user.
+    operations = []
+
+    if re.search(r"\b(average|mean|avg)\b", question):
+        operations.append("mean")
+
+    if re.search(
+        r"\b(maximum|max|highest|tallest|heaviest|largest|biggest)\b",
+        question,
+    ):
+        operations.append("max")
+
+    if re.search(
+        r"\b(minimum|min|lowest|shortest|lightest|smallest)\b",
+        question,
+    ):
+        operations.append("min")
+
+    if re.search(r"\b(sum|total)\b", question):
+        operations.append("sum")
+
+    if re.search(r"\b(count|how many|number of)\b", question):
+        operations.append("count")
+
+    # Remove duplicate operations while preserving order.
+    operations = list(dict.fromkeys(operations))
+
+    if not operations:
+        return ""
+
+    # Find the entity/name column for identifying matching rows.
+    entity_column = next(
+        (
+            col for col in df.columns
+            if str(col).lower() in ["name", "pokemon", "title", "label"]
+        ),
+        None,
+    )
+
+    for operation in operations:
+        column = find_column(question)
+
+        if operation == "count":
+            results.append(
+                f"Row count: {len(df)}"
+            )
+            continue
+
+        if column is None:
+            continue
+
+        numeric_values = pd.to_numeric(df[column], errors="coerce")
+        valid = numeric_values.dropna()
+
+        if valid.empty:
+            continue
+
+        if operation == "mean":
+            value = valid.mean()
+            results.append(
+                f"Average of {column}: {value:.4f}"
+            )
+
+        elif operation == "sum":
+            value = valid.sum()
+            results.append(
+                f"Sum of {column}: {value:.4f}"
+            )
+
+        elif operation == "max":
+            value = valid.max()
+            matching_rows = df.loc[numeric_values == value]
+
+            if entity_column is not None:
+                names = matching_rows[entity_column].astype(str).tolist()
+                results.append(
+                    f"Maximum {column}: {value}. "
+                    f"Matching {entity_column}: {', '.join(names)}"
+                )
+            else:
+                results.append(
+                    f"Maximum {column}: {value}. "
+                    f"Matching rows:\n{matching_rows.to_string(index=False)}"
+                )
+
+        elif operation == "min":
+            value = valid.min()
+            matching_rows = df.loc[numeric_values == value]
+
+            if entity_column is not None:
+                names = matching_rows[entity_column].astype(str).tolist()
+                results.append(
+                    f"Minimum {column}: {value}. "
+                    f"Matching {entity_column}: {', '.join(names)}"
+                )
+            else:
+                results.append(
+                    f"Minimum {column}: {value}. "
+                    f"Matching rows:\n{matching_rows.to_string(index=False)}"
+                )
+
+    if not results:
+        return ""
+
+    return (
+        "VERIFIED RESULTS CALCULATED DIRECTLY FROM THE DATASET:\n"
+        + "\n".join(results)
+        + "\nUse these results as the source of truth. "
+          "Do not invent values or entity names."
+    )

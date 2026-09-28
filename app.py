@@ -17,8 +17,9 @@ from src.prompt_builder import (
     build_local_analysis_prompt,
     is_chart_question,
     build_chart_context,
+    build_computed_answer_context,
 )
-from src.visualization import ( 
+from src.visualization import (     
     create_histogram,
     create_bar_chart,
     create_scatter_plot
@@ -82,6 +83,7 @@ if uploaded_file is not None:
         numerical_columns = data.select_dtypes(include="number").columns.tolist()
 
         #Histogram
+        st.subheader("Histogram")
         selected_column = None
 
         if numerical_columns:
@@ -95,7 +97,7 @@ if uploaded_file is not None:
             st.info("A histogram requires at least one numerical column in the dataset.")
         
         # Bar Chart
-        st.header("Bar Chart")
+        st.subheader("Bar Chart")
 
         # Select categorical columns for the bar chart
         categorical_columns = data.select_dtypes(
@@ -117,7 +119,7 @@ if uploaded_file is not None:
 
         
         # Scatter Plot
-        st.header("Scatter Plot")
+        st.subheader("Scatter Plot")
 
         # Get numeric columns
         numeric_columns = data.select_dtypes(include="number").columns.tolist()
@@ -171,6 +173,14 @@ if uploaded_file is not None:
                 dataset_context = build_dataset_context(data)
                 prompt = build_analysis_prompt(dataset_context, user_question)
                 fallback_prompt = build_local_analysis_prompt(data, user_question)
+                computed_context = build_computed_answer_context(
+                    data,
+                    user_question,
+                )
+
+                if computed_context:
+                    prompt += f"\n\n{computed_context}"
+                    fallback_prompt += f"\n\n{computed_context}"
             
                 # Add chart information only for chart-related questions
                 if is_chart_question(user_question):
