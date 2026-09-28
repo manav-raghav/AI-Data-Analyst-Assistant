@@ -123,7 +123,6 @@ Streamlit will provide a local URL where you can open the application in your br
 
 ## Screenshots
 
-Add screenshots of the actual application to `assets/screenshots/`.
 
 ### Dataset Preview
 
@@ -145,7 +144,6 @@ Add screenshots of the actual application to `assets/screenshots/`.
 
 ![AI Analysis](assets/screenshots/ai_analysis.png)
 
-Replace these images with screenshots of the working application. If a screenshot is not available yet, remove its image reference until you add it.
 
 ## How It Works
 
